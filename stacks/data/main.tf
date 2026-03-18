@@ -93,7 +93,7 @@ module "servicebus" {
   resource_group_name        = local.rg_name
   sku                        = var.servicebus_sku
   queues                     = var.servicebus_queues
-  enable_private_endpoint    = var.enable_private_endpoints
+  enable_private_endpoint    = var.servicebus_sku == "Premium" ? var.enable_private_endpoints : false
   private_endpoint_subnet_id = local.subnet_ids.pep
   private_dns_zone_id        = lookup(local.dns_zones, "servicebus", null)
   tags                       = local.common_tags
