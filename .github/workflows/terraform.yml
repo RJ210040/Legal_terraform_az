@@ -1,0 +1,226 @@
+name: Terraform
+
+on:
+  push:
+    branches: [main]
+    paths: ['modules/**', 'stacks/**', 'envs/**']
+  pull_request:
+    branches: [main]
+    paths: ['modules/**', 'stacks/**', 'envs/**']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+        default: 'dev'
+      stack:
+        description: 'Stack to deploy (or "all" for full deployment)'
+        required: true
+        type: choice
+        options:
+          - all
+          - foundation
+          - network
+          - security
+          - registry
+          - monitor
+          - data
+          - compute-aca
+        default: 'all'
+      action:
+        description: 'Terraform action'
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+        default: 'plan'
+
+# Prevent concurrent runs - only one deployment at a time per environment
+concurrency:
+  group: terraform-${{ github.event.inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
+env:
+  TERRAFORM_VERSION: '1.6.0'
+
+jobs:
+  # ============================================================================
+  # VALIDATE - Runs on every push/PR to check syntax
+  # ============================================================================
+  validate:
+    name: Validate Modules
+    runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Validate All Modules
+        run: |
+          echo "### Module Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          for dir in modules/*/; do
+            module_name=$(basename "$dir")
+            echo "Validating module: $module_name"
+            cd "$dir"
+            
+            if terraform init -backend=false > /dev/null 2>&1 && terraform validate > /dev/null 2>&1; then
+              echo "✅ $module_name - Valid" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ $module_name - Invalid" >> $GITHUB_STEP_SUMMARY
+              terraform validate
+              exit 1
+            fi
+            
+            cd ../..
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All modules validated successfully!" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # DEPLOY SINGLE STACK - Manual trigger for one stack
+  # ============================================================================
+  deploy-single:
+    name: ${{ github.event.inputs.action }} ${{ github.event.inputs.stack }} (${{ github.event.inputs.environment }})
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.stack != 'all'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init
+        working-directory: stacks/${{ github.event.inputs.stack }}
+        run: |
+          terraform init \
+            -backend-config=../../envs/${{ github.event.inputs.environment }}/backend.hcl \
+            -backend-config="key=${{ github.event.inputs.stack }}.tfstate"
+
+      - name: Terraform Plan
+        working-directory: stacks/${{ github.event.inputs.stack }}
+        run: |
+          terraform plan \
+            -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars \
+            -out=tfplan
+          
+          echo "### Plan Summary for ${{ github.event.inputs.stack }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
+        working-directory: stacks/${{ github.event.inputs.stack }}
+        run: terraform apply -auto-approve tfplan
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        working-directory: stacks/${{ github.event.inputs.stack }}
+        run: |
+          terraform destroy \
+            -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars \
+            -auto-approve
+
+  # ============================================================================
+  # DEPLOY ALL STACKS - Manual trigger for all stacks in order
+  # ============================================================================
+  deploy-all:
+    name: ${{ github.event.inputs.action }} all stacks (${{ github.event.inputs.environment }})
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.stack == 'all'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Process All Stacks in Order
+        run: |
+          # Deployment order matters - each stack depends on previous ones
+          STACKS="foundation network security registry monitor data compute-aca"
+          ACTION="${{ github.event.inputs.action }}"
+          
+          if [ "$ACTION" == "destroy" ]; then
+            # Reverse order for destroy
+            STACKS="compute-aca data monitor registry security network foundation"
+          fi
+          
+          echo "### $ACTION Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          for stack in $STACKS; do
+            echo ""
+            echo "=========================================="
+            echo "  Processing: $stack ($ACTION)"
+            echo "=========================================="
+            
+            cd stacks/$stack
+            
+            terraform init \
+              -backend-config=../../envs/${{ github.event.inputs.environment }}/backend.hcl \
+              -backend-config="key=$stack.tfstate"
+            
+            if [ "$ACTION" == "plan" ]; then
+              if terraform plan -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars -detailed-exitcode; then
+                echo "✅ $stack - No changes" >> $GITHUB_STEP_SUMMARY
+              else
+                exit_code=$?
+                if [ $exit_code -eq 2 ]; then
+                  echo "📝 $stack - Changes pending" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "❌ $stack - Plan failed" >> $GITHUB_STEP_SUMMARY
+                  exit 1
+                fi
+              fi
+            elif [ "$ACTION" == "apply" ]; then
+              terraform apply \
+                -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars \
+                -auto-approve
+              echo "✅ $stack - Applied" >> $GITHUB_STEP_SUMMARY
+            elif [ "$ACTION" == "destroy" ]; then
+              terraform destroy \
+                -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars \
+                -auto-approve || true
+              echo "🗑️ $stack - Destroyed" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            cd ../..
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All stacks processed!" >> $GITHUB_STEP_SUMMARY

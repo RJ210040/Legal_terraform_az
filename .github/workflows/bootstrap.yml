@@ -1,0 +1,132 @@
+name: Bootstrap Terraform State
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to bootstrap'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        default: 'dev'
+      region:
+        description: 'Azure region'
+        required: true
+        default: 'eastus'
+      org_short:
+        description: 'Organization short name'
+        required: true
+        default: 'tv'
+      project:
+        description: 'Project name'
+        required: true
+        default: 'agentic'
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
+jobs:
+  bootstrap:
+    name: Create Terraform State Storage
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.ARM_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.ARM_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.ARM_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.ARM_TENANT_ID }}"
+            }
+
+      - name: Set Variables
+        id: vars
+        run: |
+          RG_NAME="${{ inputs.org_short }}-${{ inputs.project }}-${{ inputs.environment }}-tfstate-rg"
+          STORAGE_NAME="${{ inputs.org_short }}${{ inputs.project }}${{ inputs.environment }}tfstate"
+          CONTAINER_NAME="tfstate"
+          
+          echo "rg_name=$RG_NAME" >> $GITHUB_OUTPUT
+          echo "storage_name=$STORAGE_NAME" >> $GITHUB_OUTPUT
+          echo "container_name=$CONTAINER_NAME" >> $GITHUB_OUTPUT
+          
+          echo "### Bootstrap Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | ${{ inputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | ${{ inputs.region }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource Group | $RG_NAME |" >> $GITHUB_STEP_SUMMARY
+          echo "| Storage Account | $STORAGE_NAME |" >> $GITHUB_STEP_SUMMARY
+          echo "| Container | $CONTAINER_NAME |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create Resource Group
+        run: |
+          az group create \
+            --name "${{ steps.vars.outputs.rg_name }}" \
+            --location "${{ inputs.region }}" \
+            --tags environment=${{ inputs.environment }} purpose=terraform-state managed_by=github-actions
+
+      - name: Create Storage Account
+        run: |
+          az storage account create \
+            --name "${{ steps.vars.outputs.storage_name }}" \
+            --resource-group "${{ steps.vars.outputs.rg_name }}" \
+            --location "${{ inputs.region }}" \
+            --sku Standard_LRS \
+            --kind StorageV2 \
+            --min-tls-version TLS1_2 \
+            --allow-blob-public-access false \
+            --tags environment=${{ inputs.environment }} purpose=terraform-state
+
+      - name: Create Blob Container
+        run: |
+          az storage container create \
+            --name "${{ steps.vars.outputs.container_name }}" \
+            --account-name "${{ steps.vars.outputs.storage_name }}" \
+            --auth-mode login
+
+      - name: Enable Versioning
+        run: |
+          az storage account blob-service-properties update \
+            --account-name "${{ steps.vars.outputs.storage_name }}" \
+            --resource-group "${{ steps.vars.outputs.rg_name }}" \
+            --enable-versioning true
+
+      - name: Output Configuration
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "  BOOTSTRAP COMPLETE!"
+          echo "=========================================="
+          echo ""
+          echo "Add these values to envs/${{ inputs.environment }}/backend.hcl:"
+          echo ""
+          echo "resource_group_name  = \"${{ steps.vars.outputs.rg_name }}\""
+          echo "storage_account_name = \"${{ steps.vars.outputs.storage_name }}\""
+          echo "container_name       = \"${{ steps.vars.outputs.container_name }}\""
+          echo ""
+          
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Update \`envs/${{ inputs.environment }}/backend.hcl\` with:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`hcl" >> $GITHUB_STEP_SUMMARY
+          echo "resource_group_name  = \"${{ steps.vars.outputs.rg_name }}\"" >> $GITHUB_STEP_SUMMARY
+          echo "storage_account_name = \"${{ steps.vars.outputs.storage_name }}\"" >> $GITHUB_STEP_SUMMARY
+          echo "container_name       = \"${{ steps.vars.outputs.container_name }}\"" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Azure Logout
+        if: always()
+        run: az logout
