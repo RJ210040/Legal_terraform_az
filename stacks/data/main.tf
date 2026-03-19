@@ -63,8 +63,9 @@ module "postgres" {
   storage_mb           = var.postgresql_storage_mb
   ha_enabled           = var.postgresql_ha_enabled
   backup_retention_days = var.backup_retention_days
-  delegated_subnet_id  = local.subnet_ids.data
-  private_dns_zone_id  = lookup(local.dns_zones, "postgres", null)
+  delegated_subnet_id  = var.enable_private_endpoints ? local.subnet_ids.data : null
+  private_dns_zone_id  = var.enable_private_endpoints ? lookup(local.dns_zones, "postgres", null) : null
+  firewall_rules       = var.enable_private_endpoints ? [] : var.postgresql_firewall_rules
   databases            = var.databases
   extensions           = var.postgresql_extensions
   tags                 = local.common_tags
