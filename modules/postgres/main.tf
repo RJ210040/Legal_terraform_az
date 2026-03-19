@@ -51,6 +51,14 @@ resource "azurerm_postgresql_flexible_server" "main" {
   }
 }
 
+resource "azurerm_postgresql_flexible_server_firewall_rule" "rules" {
+  for_each             = { for r in var.firewall_rules : r.name => r }
+  name                 = each.value.name
+  server_id            = azurerm_postgresql_flexible_server.main.id
+  start_ip_address     = each.value.start_ip
+  end_ip_address       = each.value.end_ip
+}
+
 resource "azurerm_postgresql_flexible_server_configuration" "extensions" {
   name      = "azure.extensions"
   server_id = azurerm_postgresql_flexible_server.main.id

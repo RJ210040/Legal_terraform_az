@@ -91,6 +91,22 @@ variable "servicebus_queues" {
   default     = ["evidence-validation", "evidence-notification"]
 }
 
+variable "postgresql_firewall_rules" {
+  description = "PostgreSQL firewall rules for public access mode"
+  type = list(object({
+    name     = string
+    start_ip = string
+    end_ip   = string
+  }))
+  default = [
+    {
+      name     = "AllowAzureServices"
+      start_ip = "0.0.0.0"
+      end_ip   = "0.0.0.0"
+    }
+  ]
+}
+
 variable "enable_private_endpoints" {
   description = "Enable private endpoints"
   type        = bool

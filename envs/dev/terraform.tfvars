@@ -21,8 +21,8 @@ subnet_cidrs = {
   aci  = "10.0.6.0/24"
 }
 
-# Security
-enable_private_endpoints = true
+# Security (relaxed for dev — public access enabled for local development)
+enable_private_endpoints = false
 
 # Developer Access - Entra ID object IDs
 # Get object ID: az ad user show --id "user@tresvista.net" --query id -o tsv
@@ -38,6 +38,20 @@ postgresql_sku           = "B_Standard_B1ms"
 postgresql_storage_mb    = 32768
 postgresql_ha_enabled    = false
 storage_replication_type = "LRS"
+
+# PostgreSQL firewall (public access since private endpoints are disabled)
+postgresql_firewall_rules = [
+  {
+    name     = "AllowAzureServices"
+    start_ip = "0.0.0.0"
+    end_ip   = "0.0.0.0"
+  },
+  {
+    name     = "AllowAllForDev"
+    start_ip = "0.0.0.0"
+    end_ip   = "255.255.255.255"
+  }
+]
 
 # Monitor
 retention_in_days = 30

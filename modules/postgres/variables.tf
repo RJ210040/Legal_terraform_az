@@ -86,6 +86,16 @@ variable "standby_availability_zone" {
   default     = "2"
 }
 
+variable "firewall_rules" {
+  description = "Firewall rules for public access mode (ignored when VNet-integrated)"
+  type = list(object({
+    name     = string
+    start_ip = string
+    end_ip   = string
+  }))
+  default = []
+}
+
 variable "databases" {
   description = "List of databases to create"
   type        = list(string)
