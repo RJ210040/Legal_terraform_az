@@ -16,6 +16,13 @@ resource "azurerm_container_app_environment" "main" {
   infrastructure_subnet_id       = var.infrastructure_subnet_id
   internal_load_balancer_enabled = var.internal_load_balancer_enabled
   tags                           = var.tags
+
+  lifecycle {
+    ignore_changes = [
+      infrastructure_resource_group_name,
+      workload_profile,
+    ]
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -45,7 +52,7 @@ resource "azurerm_container_app" "apps" {
 
   # Only configure ACR registry when the image is actually hosted in ACR
   dynamic "registry" {
-    for_each = each.value.image != null && var.acr_login_server != null && startswith(each.value.image, "${var.acr_login_server}/") ? [1] : []
+    for_each = try(startswith(each.value.image, "${var.acr_login_server}/"), false) ? [1] : []
     content {
       server   = var.acr_login_server
       identity = "system"
