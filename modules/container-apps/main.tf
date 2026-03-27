@@ -158,7 +158,8 @@ resource "azurerm_container_app" "apps" {
     # These will be updated when real application images are pushed
     ignore_changes = [
       template[0].container[0].image,
-      ingress[0].target_port
+      ingress[0].target_port,
+      workload_profile_name,
     ]
   }
 
