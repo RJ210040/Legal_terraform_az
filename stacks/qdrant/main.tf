@@ -91,8 +91,7 @@ provider "kubernetes" {
 }
 
 provider "helm" {
-  # Helm provider v3.x uses kubernetes object assignment syntax
-  kubernetes = {
+  kubernetes {
     host                   = var.environment == "prod" ? data.azurerm_kubernetes_cluster.aks[0].kube_config[0].host : null
     client_certificate     = var.environment == "prod" ? base64decode(data.azurerm_kubernetes_cluster.aks[0].kube_config[0].client_certificate) : null
     client_key             = var.environment == "prod" ? base64decode(data.azurerm_kubernetes_cluster.aks[0].kube_config[0].client_key) : null
