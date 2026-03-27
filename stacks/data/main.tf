@@ -78,7 +78,7 @@ module "storage" {
   resource_group_name        = local.rg_name
   replication_type           = var.storage_replication_type
   containers                 = var.storage_containers
-  file_shares                = []
+  file_shares                = var.storage_file_shares
   enable_versioning          = var.enable_versioning
   blob_soft_delete_days      = var.blob_soft_delete_days
   enable_private_endpoint    = var.enable_private_endpoints

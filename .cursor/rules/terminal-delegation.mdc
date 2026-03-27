@@ -1,0 +1,20 @@
+---
+description: User runs shell/PowerShell locally; agent avoids blocked terminal loops
+alwaysApply: true
+---
+
+# Terminal and PowerShell (this workspace)
+
+## Default workflow
+
+- **Do not rely on the agent’s integrated terminal** for PowerShell, `mkdir`, `ls`, `dir`, or other shell commands when the environment often **blocks, aborts, or no-ops** those runs.
+- **Prefer file operations** that work without a shell: create or edit files directly (e.g. `Write` / patch tools). Creating a new file under a path usually creates parent folders—**no `mkdir` required** unless the user explicitly needs a directory-only step.
+- If a step truly needs the user’s machine (permissions, paths, Obsidian outside the workspace, etc.), **give them the exact command(s) to copy-paste** into their own terminal, then **stop and wait** for them to confirm the result. **Do not retry the same blocked command in a loop.**
+
+## When the user confirms
+
+- If the user says they ran a command locally (e.g. folder created, package installed), **trust that** and continue using file tools from there. Do not re-run the shell command to “verify” unless they ask.
+
+## Allowlisted commands
+
+- Even when terminal commands are allowlisted, **if a prior attempt failed, aborted, or produced no output**, switch immediately to file-based work or delegation to the user—**do not keep trying variants** of the same shell approach.

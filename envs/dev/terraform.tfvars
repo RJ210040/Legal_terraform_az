@@ -59,6 +59,7 @@ daily_quota_gb    = 5
 
 # Storage
 storage_containers       = ["evidence", "audit-packs"]
+storage_file_shares      = ["qdrant-data"]
 enable_versioning        = true
 blob_soft_delete_days    = 30
 
@@ -83,5 +84,32 @@ container_apps = [
     min_replicas = 0
     max_replicas = 2
     target_port  = 3000
+  },
+  {
+    name              = "qdrant"
+    image             = "qdrant/qdrant:v1.13.2"
+    cpu               = 1.0
+    memory            = "2Gi"
+    min_replicas      = 1
+    max_replicas      = 1
+    target_port       = 6333
+    health_check_path = "/healthz"
+    env_vars = {
+      "QDRANT__SERVICE__GRPC_PORT" = "6334"
+    }
+    volume_mounts = [
+      {
+        name       = "qdrant-data"
+        mount_path = "/qdrant/storage"
+      }
+    ]
   }
 ]
+
+# Azure File shares linked to Container App Environment (for persistent volumes)
+azure_file_shares = {
+  "qdrant-data" = {
+    share_name  = "qdrant-data"
+    access_mode = "ReadWrite"
+  }
+}

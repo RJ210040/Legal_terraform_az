@@ -112,3 +112,9 @@ variable "enable_private_endpoints" {
   type        = bool
   default     = true
 }
+
+variable "storage_file_shares" {
+  description = "List of Azure File shares to create in the storage account"
+  type        = list(string)
+  default     = []
+}

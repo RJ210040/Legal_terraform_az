@@ -30,6 +30,7 @@ on:
           - monitor
           - data
           - compute-aca
+          - qdrant
         default: 'all'
       action:
         description: 'Terraform action'
@@ -172,12 +173,12 @@ jobs:
       - name: Process All Stacks in Order
         run: |
           # Deployment order matters - each stack depends on previous ones
-          STACKS="foundation network security registry monitor data compute-aca"
+          STACKS="foundation network security registry monitor data compute-aca qdrant"
           ACTION="${{ github.event.inputs.action }}"
           
           if [ "$ACTION" == "destroy" ]; then
             # Reverse order for destroy
-            STACKS="compute-aca data monitor registry security network foundation"
+            STACKS="qdrant compute-aca data monitor registry security network foundation"
           fi
           
           echo "### $ACTION Results" >> $GITHUB_STEP_SUMMARY
