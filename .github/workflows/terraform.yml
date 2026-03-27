@@ -125,6 +125,19 @@ jobs:
             -backend-config=../../envs/${{ github.event.inputs.environment }}/backend.hcl \
             -backend-config="key=${{ github.event.inputs.stack }}.tfstate"
 
+      - name: Import orphaned Qdrant app (one-time fix)
+        if: github.event.inputs.stack == 'compute-aca'
+        working-directory: stacks/${{ github.event.inputs.stack }}
+        run: |
+          # The first deployment created a qdrant container app in Azure but
+          # timed out before recording it in state. This imports it so
+          # Terraform can manage it. Safe to remove after first success.
+          terraform import \
+            -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars \
+            'module.container_apps.azurerm_container_app.apps["qdrant"]' \
+            "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/tv-agentic-dev-eus2-rg/providers/Microsoft.App/containerApps/qdrant" \
+            2>&1 || echo "Import skipped (already managed or not found)"
+
       - name: Terraform Plan
         working-directory: stacks/${{ github.event.inputs.stack }}
         run: |
@@ -196,6 +209,15 @@ jobs:
               -backend-config=../../envs/${{ github.event.inputs.environment }}/backend.hcl \
               -backend-config="key=$stack.tfstate"
             
+            # One-time fix: import orphaned qdrant container app from first failed deployment
+            if [ "$stack" == "compute-aca" ]; then
+              terraform import \
+                -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars \
+                'module.container_apps.azurerm_container_app.apps["qdrant"]' \
+                "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/tv-agentic-dev-eus2-rg/providers/Microsoft.App/containerApps/qdrant" \
+                2>&1 || echo "Import skipped (already managed or not found)"
+            fi
+
             if [ "$ACTION" == "plan" ]; then
               if terraform plan -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars -detailed-exitcode; then
                 echo "✅ $stack - No changes" >> $GITHUB_STEP_SUMMARY
