@@ -43,9 +43,9 @@ resource "azurerm_container_app" "apps" {
     type = "SystemAssigned"
   }
 
-  # Only configure ACR registry if using a custom image from ACR
+  # Only configure ACR registry when the image is actually hosted in ACR
   dynamic "registry" {
-    for_each = each.value.image != null && var.acr_login_server != null ? [1] : []
+    for_each = each.value.image != null && var.acr_login_server != null && startswith(each.value.image, "${var.acr_login_server}/") ? [1] : []
     content {
       server   = var.acr_login_server
       identity = "system"
