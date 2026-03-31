@@ -40,7 +40,7 @@ variable "postgresql_ha_enabled" {
 variable "databases" {
   description = "List of databases to create"
   type        = list(string)
-  default     = ["agentic"]
+  default     = ["legal"]
 }
 
 variable "postgresql_extensions" {

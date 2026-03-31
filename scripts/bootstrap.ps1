@@ -23,7 +23,7 @@ param(
     
     [string]$OrgShort = "tv",
     
-    [string]$Project = "agentic"
+    [string]$Project = "legal"
 )
 
 $ErrorActionPreference = "Stop"

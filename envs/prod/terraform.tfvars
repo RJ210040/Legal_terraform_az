@@ -1,13 +1,13 @@
 # Prod Environment - Variables (~1000 users, high availability)
 
 org_short   = "tv"
-project     = "agentic"
+project     = "legal"
 environment = "prod"
 region      = "eastus2"
 
 # State backend
-state_resource_group_name  = "tv-agentic-prod-tfstate-rg"
-state_storage_account_name = "tvagenticprodtfstate"
+state_resource_group_name  = "tv-legal-prod-tfstate-rg"
+state_storage_account_name = "tvlegalprodtfstate"
 state_container_name       = "tfstate"
 
 # Network

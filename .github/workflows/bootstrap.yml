@@ -23,7 +23,7 @@ on:
       project:
         description: 'Project name'
         required: true
-        default: 'agentic'
+        default: 'legal'
 
 env:
   ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}

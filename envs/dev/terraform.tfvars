@@ -1,13 +1,13 @@
 # Dev Environment - Variables (~20 users, cost-optimized)
 
 org_short   = "tv"
-project     = "agentic"
+project     = "legal"
 environment = "dev"
 region      = "eastus2"
 
 # State backend
-state_resource_group_name  = "tv-agentic-dev-tfstate-rg"
-state_storage_account_name = "tvagenticdevtfstate"
+state_resource_group_name  = "tv-legal-dev-tfstate-rg"
+state_storage_account_name = "tvlegaldevtfstate"
 state_container_name       = "tfstate"
 
 # Network

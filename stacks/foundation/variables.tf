@@ -6,7 +6,7 @@ variable "org_short" {
 variable "project" {
   description = "Project name"
   type        = string
-  default     = "agentic"
+  default     = "legal"
 }
 
 variable "environment" {

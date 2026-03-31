@@ -1,4 +1,4 @@
 # Dev Environment - Backend Configuration
-resource_group_name  = "tv-agentic-dev-tfstate-rg"
-storage_account_name = "tvagenticdevtfstate"
+resource_group_name  = "tv-legal-dev-tfstate-rg"
+storage_account_name = "tvlegaldevtfstate"
 container_name       = "tfstate"
