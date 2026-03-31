@@ -92,3 +92,9 @@ variable "hpa_max_replicas" {
   type        = number
   default     = 6
 }
+
+variable "enable_qdrant" {
+  description = "Deploy Qdrant vector database"
+  type        = bool
+  default     = true
+}

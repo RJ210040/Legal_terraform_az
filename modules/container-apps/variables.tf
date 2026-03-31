@@ -90,6 +90,12 @@ variable "azure_file_shares" {
   default = {}
 }
 
+variable "allowed_source_ips" {
+  description = "List of allowed source IP CIDR ranges for Container Apps ingress. Empty list allows all traffic."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Resource tags"
   type        = map(string)

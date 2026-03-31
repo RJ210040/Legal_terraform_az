@@ -118,3 +118,33 @@ variable "storage_file_shares" {
   type        = list(string)
   default     = []
 }
+
+variable "enable_postgres" {
+  description = "Deploy PostgreSQL Flexible Server"
+  type        = bool
+  default     = true
+}
+
+variable "enable_storage" {
+  description = "Deploy Storage Account (blob containers and file shares)"
+  type        = bool
+  default     = true
+}
+
+variable "enable_service_bus" {
+  description = "Deploy Service Bus namespace and queues"
+  type        = bool
+  default     = false
+}
+
+variable "enable_qdrant" {
+  description = "Qdrant is enabled — auto-provision the qdrant-data Azure Files share"
+  type        = bool
+  default     = true
+}
+
+variable "enable_neo4j" {
+  description = "Neo4j is enabled — auto-provision the neo4j-data Azure Files share"
+  type        = bool
+  default     = false
+}

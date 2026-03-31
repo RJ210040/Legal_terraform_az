@@ -127,6 +127,18 @@ resource "azurerm_container_app" "apps" {
       # Placeholder image runs on port 80, use custom port only when custom image is specified
       target_port      = each.value.image != null ? each.value.target_port : 80
       transport        = "http"
+
+      # IP allowlist — when allowed_source_ips is non-empty, only those CIDRs can reach the app.
+      # An empty list means no restrictions (allow all traffic).
+      dynamic "ip_security_restriction" {
+        for_each = var.allowed_source_ips
+        content {
+          action           = "Allow"
+          ip_address_range = ip_security_restriction.value
+          name             = "allow-${replace(ip_security_restriction.value, "/", "-")}"
+        }
+      }
+
       traffic_weight {
         percentage      = 100
         latest_revision = true

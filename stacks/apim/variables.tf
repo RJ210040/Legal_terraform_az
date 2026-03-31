@@ -14,15 +14,22 @@ variable "state_container_name" {
   default     = "tfstate"
 }
 
+variable "enable_apim" {
+  description = "Deploy Azure API Management gateway"
+  type        = bool
+  default     = true
+}
+
 variable "publisher_name" {
   description = "Publisher name"
   type        = string
-  default     = "Agentic AI Platform"
+  default     = "TV Engineering"
 }
 
 variable "publisher_email" {
   description = "Publisher email"
   type        = string
+  default     = "infra@tresvista.com"
 }
 
 variable "sku_name" {
@@ -38,6 +45,8 @@ variable "products" {
     display_name          = string
     description           = optional(string, "")
     subscription_required = optional(bool, true)
+    approval_required     = optional(bool, false)
+    published             = optional(bool, true)
   }))
   default = [
     {

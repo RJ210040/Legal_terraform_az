@@ -83,19 +83,26 @@ data "azurerm_kubernetes_cluster" "aks" {
   resource_group_name = local.rg_name
 }
 
+locals {
+  # try() handles the dev case where count = 0 and aks[0] does not exist.
+  # Extracting the whole kube_config object here keeps base64decode() calls
+  # in the provider blocks simple and avoids nested try(base64decode(...)) warnings.
+  _aks_cfg = try(data.azurerm_kubernetes_cluster.aks[0].kube_config[0], null)
+}
+
 provider "kubernetes" {
-  host                   = var.environment == "prod" ? data.azurerm_kubernetes_cluster.aks[0].kube_config[0].host : null
-  client_certificate     = var.environment == "prod" ? base64decode(data.azurerm_kubernetes_cluster.aks[0].kube_config[0].client_certificate) : null
-  client_key             = var.environment == "prod" ? base64decode(data.azurerm_kubernetes_cluster.aks[0].kube_config[0].client_key) : null
-  cluster_ca_certificate = var.environment == "prod" ? base64decode(data.azurerm_kubernetes_cluster.aks[0].kube_config[0].cluster_ca_certificate) : null
+  host                   = local._aks_cfg != null ? local._aks_cfg.host : null
+  client_certificate     = local._aks_cfg != null ? base64decode(local._aks_cfg.client_certificate) : null
+  client_key             = local._aks_cfg != null ? base64decode(local._aks_cfg.client_key) : null
+  cluster_ca_certificate = local._aks_cfg != null ? base64decode(local._aks_cfg.cluster_ca_certificate) : null
 }
 
 provider "helm" {
   kubernetes {
-    host                   = var.environment == "prod" ? data.azurerm_kubernetes_cluster.aks[0].kube_config[0].host : null
-    client_certificate     = var.environment == "prod" ? base64decode(data.azurerm_kubernetes_cluster.aks[0].kube_config[0].client_certificate) : null
-    client_key             = var.environment == "prod" ? base64decode(data.azurerm_kubernetes_cluster.aks[0].kube_config[0].client_key) : null
-    cluster_ca_certificate = var.environment == "prod" ? base64decode(data.azurerm_kubernetes_cluster.aks[0].kube_config[0].cluster_ca_certificate) : null
+    host                   = local._aks_cfg != null ? local._aks_cfg.host : null
+    client_certificate     = local._aks_cfg != null ? base64decode(local._aks_cfg.client_certificate) : null
+    client_key             = local._aks_cfg != null ? base64decode(local._aks_cfg.client_key) : null
+    cluster_ca_certificate = local._aks_cfg != null ? base64decode(local._aks_cfg.cluster_ca_certificate) : null
   }
 }
 
@@ -104,18 +111,18 @@ provider "helm" {
 # We just reference the endpoint here for outputs
 # -----------------------------------------------------------------------------
 locals {
-  # For dev, get Qdrant FQDN from Container Apps
-  qdrant_aca_fqdn = var.environment == "dev" ? lookup(
-    data.terraform_remote_state.compute_aca[0].outputs.app_fqdns,
-    "qdrant",
+  # For dev, get Qdrant FQDN from Container Apps.
+  # try() guards against the count=0 case (prod) where compute_aca[0] does not exist.
+  qdrant_aca_fqdn = try(
+    lookup(data.terraform_remote_state.compute_aca[0].outputs.app_fqdns, "qdrant", null),
     null
-  ) : null
+  )
 }
 
-# Qdrant on AKS (prod)
+# Qdrant on AKS (prod only, and only when enable_qdrant = true)
 module "qdrant_aks" {
   source           = "../../modules/qdrant-aks"
-  count            = var.environment == "prod" ? 1 : 0
+  count            = var.enable_qdrant && var.environment == "prod" ? 1 : 0
   release_name     = "qdrant"
   namespace        = "qdrant"
   replicas         = var.aks_replicas

@@ -44,6 +44,7 @@ locals {
 }
 
 module "apim" {
+  count               = var.enable_apim ? 1 : 0
   source              = "../../modules/apim"
   name                = local.naming.api_management
   location            = local.location

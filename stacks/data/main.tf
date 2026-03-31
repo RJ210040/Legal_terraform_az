@@ -52,9 +52,18 @@ locals {
   common_tags = data.terraform_remote_state.foundation.outputs.common_tags
   subnet_ids  = data.terraform_remote_state.network.outputs.subnet_ids
   dns_zones   = data.terraform_remote_state.network.outputs.private_dns_zone_ids
+
+  # Auto-add Azure Files shares for enabled database containers.
+  # Users set enable_qdrant / enable_neo4j — the shares are provisioned automatically.
+  effective_file_shares = concat(
+    var.storage_file_shares,
+    var.enable_qdrant ? ["qdrant-data"] : [],
+    var.enable_neo4j  ? ["neo4j-data"]  : []
+  )
 }
 
 module "postgres" {
+  count                = var.enable_postgres ? 1 : 0
   source               = "../../modules/postgres"
   name                 = local.naming.postgresql_server
   location             = local.location
@@ -72,13 +81,14 @@ module "postgres" {
 }
 
 module "storage" {
+  count                      = (var.enable_storage || var.enable_qdrant || var.enable_neo4j) ? 1 : 0
   source                     = "../../modules/storage"
   name                       = local.naming.storage_account
   location                   = local.location
   resource_group_name        = local.rg_name
   replication_type           = var.storage_replication_type
   containers                 = var.storage_containers
-  file_shares                = var.storage_file_shares
+  file_shares                = local.effective_file_shares
   enable_versioning          = var.enable_versioning
   blob_soft_delete_days      = var.blob_soft_delete_days
   enable_private_endpoint    = var.enable_private_endpoints
@@ -88,6 +98,7 @@ module "storage" {
 }
 
 module "servicebus" {
+  count                      = var.enable_service_bus ? 1 : 0
   source                     = "../../modules/service-bus"
   name                       = local.naming.service_bus_namespace
   location                   = local.location
@@ -106,13 +117,15 @@ data "azurerm_key_vault" "main" {
 }
 
 resource "azurerm_key_vault_secret" "pg_conn" {
+  count        = var.enable_postgres ? 1 : 0
   name         = "postgresql-connection-string"
-  value        = module.postgres.connection_string_full
+  value        = module.postgres[0].connection_string_full
   key_vault_id = data.azurerm_key_vault.main.id
 }
 
 resource "azurerm_key_vault_secret" "sb_conn" {
+  count        = var.enable_service_bus ? 1 : 0
   name         = "servicebus-connection-string"
-  value        = module.servicebus.primary_connection_string
+  value        = module.servicebus[0].primary_connection_string
   key_vault_id = data.azurerm_key_vault.main.id
 }

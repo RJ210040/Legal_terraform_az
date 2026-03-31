@@ -61,10 +61,28 @@ variable "container_apps" {
 }
 
 variable "azure_file_shares" {
-  description = "Map of Azure File share configurations for persistent storage"
+  description = "Additional Azure File share configurations for persistent storage (beyond the auto-managed database shares)"
   type = map(object({
     share_name  = string
     access_mode = optional(string, "ReadWrite")
   }))
   default = {}
+}
+
+variable "enable_qdrant" {
+  description = "Deploy Qdrant vector database as a Container App with persistent Azure Files storage"
+  type        = bool
+  default     = true
+}
+
+variable "enable_neo4j" {
+  description = "Deploy Neo4j graph database as a Container App with persistent Azure Files storage"
+  type        = bool
+  default     = false
+}
+
+variable "allowed_source_ips" {
+  description = "List of allowed source IP CIDR ranges for Container Apps ingress. Empty allows all traffic."
+  type        = list(string)
+  default     = []
 }

@@ -31,6 +31,7 @@ on:
           - data
           - compute-aca
           - qdrant
+          - apim
         default: 'all'
       action:
         description: 'Terraform action'
@@ -118,11 +119,28 @@ jobs:
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
+      # Derive state backend names from org_short + project + environment in terraform.tfvars.
+      # This eliminates the need to manually maintain backend.hcl for CI/CD.
+      - name: Compute Backend Config
+        id: backend
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          TFVARS="envs/${ENV}/terraform.tfvars"
+          ORG=$(grep '^org_short' "$TFVARS" | sed 's/.*= *"\([^"]*\)".*/\1/')
+          PROJ=$(grep '^project'   "$TFVARS" | sed 's/.*= *"\([^"]*\)".*/\1/')
+          STATE_RG="${ORG}-${PROJ}-${ENV}-tfstate-rg"
+          STATE_SA="${ORG}${PROJ}${ENV}tfstate"
+          echo "state_rg=${STATE_RG}" >> $GITHUB_OUTPUT
+          echo "state_sa=${STATE_SA}" >> $GITHUB_OUTPUT
+          echo "Derived: RG=${STATE_RG}  SA=${STATE_SA}"
+
       - name: Terraform Init
         working-directory: stacks/${{ github.event.inputs.stack }}
         run: |
           terraform init \
-            -backend-config=../../envs/${{ github.event.inputs.environment }}/backend.hcl \
+            -backend-config="resource_group_name=${{ steps.backend.outputs.state_rg }}" \
+            -backend-config="storage_account_name=${{ steps.backend.outputs.state_sa }}" \
+            -backend-config="container_name=tfstate" \
             -backend-config="key=${{ github.event.inputs.stack }}.tfstate"
 
       - name: Terraform Plan
@@ -130,8 +148,10 @@ jobs:
         run: |
           terraform plan \
             -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars \
+            -var="state_resource_group_name=${{ steps.backend.outputs.state_rg }}" \
+            -var="state_storage_account_name=${{ steps.backend.outputs.state_sa }}" \
+            -var="state_container_name=tfstate" \
             -out=tfplan
-          
           echo "### Plan Summary for ${{ github.event.inputs.stack }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Terraform Apply
@@ -145,6 +165,9 @@ jobs:
         run: |
           terraform destroy \
             -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars \
+            -var="state_resource_group_name=${{ steps.backend.outputs.state_rg }}" \
+            -var="state_storage_account_name=${{ steps.backend.outputs.state_sa }}" \
+            -var="state_container_name=tfstate" \
             -auto-approve
 
   # ============================================================================
@@ -170,15 +193,33 @@ jobs:
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
-      - name: Process All Stacks in Order
+      - name: Compute Backend Config
+        id: backend
         run: |
-          # Deployment order matters - each stack depends on previous ones
-          STACKS="foundation network security registry monitor data compute-aca qdrant"
+          ENV="${{ github.event.inputs.environment }}"
+          TFVARS="envs/${ENV}/terraform.tfvars"
+          ORG=$(grep '^org_short' "$TFVARS" | sed 's/.*= *"\([^"]*\)".*/\1/')
+          PROJ=$(grep '^project'   "$TFVARS" | sed 's/.*= *"\([^"]*\)".*/\1/')
+          STATE_RG="${ORG}-${PROJ}-${ENV}-tfstate-rg"
+          STATE_SA="${ORG}${PROJ}${ENV}tfstate"
+          echo "state_rg=${STATE_RG}" >> $GITHUB_OUTPUT
+          echo "state_sa=${STATE_SA}" >> $GITHUB_OUTPUT
+          echo "Derived: RG=${STATE_RG}  SA=${STATE_SA}"
+
+      - name: Process All Stacks in Order
+        env:
+          STATE_RG: ${{ steps.backend.outputs.state_rg }}
+          STATE_SA: ${{ steps.backend.outputs.state_sa }}
+        run: |
+          # Deployment order matters — each stack depends on previous ones via remote state.
+          # apim is last because it only depends on foundation + monitor.
+          # Stacks with enable_* = false in tfvars will apply with zero resources (~5s each).
+          STACKS="foundation network security registry monitor data compute-aca qdrant apim"
           ACTION="${{ github.event.inputs.action }}"
+          ENV="${{ github.event.inputs.environment }}"
           
           if [ "$ACTION" == "destroy" ]; then
-            # Reverse order for destroy
-            STACKS="qdrant compute-aca data monitor registry security network foundation"
+            STACKS="apim qdrant compute-aca data monitor registry security network foundation"
           fi
           
           echo "### $ACTION Results" >> $GITHUB_STEP_SUMMARY
@@ -193,11 +234,18 @@ jobs:
             cd stacks/$stack
             
             terraform init \
-              -backend-config=../../envs/${{ github.event.inputs.environment }}/backend.hcl \
-              -backend-config="key=$stack.tfstate"
+              -backend-config="resource_group_name=${STATE_RG}" \
+              -backend-config="storage_account_name=${STATE_SA}" \
+              -backend-config="container_name=tfstate" \
+              -backend-config="key=${stack}.tfstate"
             
             if [ "$ACTION" == "plan" ]; then
-              if terraform plan -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars -detailed-exitcode; then
+              if terraform plan \
+                -var-file=../../envs/${ENV}/terraform.tfvars \
+                -var="state_resource_group_name=${STATE_RG}" \
+                -var="state_storage_account_name=${STATE_SA}" \
+                -var="state_container_name=tfstate" \
+                -detailed-exitcode; then
                 echo "✅ $stack - No changes" >> $GITHUB_STEP_SUMMARY
               else
                 exit_code=$?
@@ -210,12 +258,18 @@ jobs:
               fi
             elif [ "$ACTION" == "apply" ]; then
               terraform apply \
-                -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars \
+                -var-file=../../envs/${ENV}/terraform.tfvars \
+                -var="state_resource_group_name=${STATE_RG}" \
+                -var="state_storage_account_name=${STATE_SA}" \
+                -var="state_container_name=tfstate" \
                 -auto-approve
               echo "✅ $stack - Applied" >> $GITHUB_STEP_SUMMARY
             elif [ "$ACTION" == "destroy" ]; then
               terraform destroy \
-                -var-file=../../envs/${{ github.event.inputs.environment }}/terraform.tfvars \
+                -var-file=../../envs/${ENV}/terraform.tfvars \
+                -var="state_resource_group_name=${STATE_RG}" \
+                -var="state_storage_account_name=${STATE_SA}" \
+                -var="state_container_name=tfstate" \
                 -auto-approve || true
               echo "🗑️ $stack - Destroyed" >> $GITHUB_STEP_SUMMARY
             fi
