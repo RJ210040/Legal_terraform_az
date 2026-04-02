@@ -45,7 +45,7 @@ module "network" {
   subnet_names        = local.subnets
   subnet_cidrs        = var.subnet_cidrs
   enable_aks_subnet   = var.environment == "prod"
-  enable_aci_subnet   = var.environment == "dev"
+  enable_aci_subnet   = contains(["dev", "mvp"], var.environment)
   enable_private_dns  = var.enable_private_dns
   tags                = local.common_tags
 }

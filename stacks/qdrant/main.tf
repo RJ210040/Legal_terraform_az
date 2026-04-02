@@ -48,7 +48,7 @@ data "terraform_remote_state" "network" {
   }
 }
 data "terraform_remote_state" "compute_aca" {
-  count   = var.environment == "dev" ? 1 : 0
+  count   = contains(["dev", "mvp"], var.environment) ? 1 : 0
   backend = "azurerm"
   config = {
     resource_group_name  = var.state_resource_group_name

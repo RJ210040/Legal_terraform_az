@@ -9,13 +9,14 @@ on:
         type: choice
         options:
           - dev
+          - mvp
           - staging
           - prod
         default: 'dev'
       region:
         description: 'Azure region'
         required: true
-        default: 'eastus'
+        default: 'eastus2'
       org_short:
         description: 'Organization short name'
         required: true

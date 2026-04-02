@@ -15,6 +15,7 @@ on:
         type: choice
         options:
           - dev
+          - mvp
           - prod
         default: 'dev'
       stack:
@@ -30,6 +31,7 @@ on:
           - monitor
           - data
           - compute-aca
+          - compute-aks
           - qdrant
           - apim
         default: 'all'
@@ -214,12 +216,12 @@ jobs:
           # Deployment order matters — each stack depends on previous ones via remote state.
           # apim is last because it only depends on foundation + monitor.
           # Stacks with enable_* = false in tfvars will apply with zero resources (~5s each).
-          STACKS="foundation network security registry monitor data compute-aca qdrant apim"
+          STACKS="foundation network security registry monitor data compute-aca compute-aks qdrant apim"
           ACTION="${{ github.event.inputs.action }}"
           ENV="${{ github.event.inputs.environment }}"
           
           if [ "$ACTION" == "destroy" ]; then
-            STACKS="apim qdrant compute-aca data monitor registry security network foundation"
+            STACKS="apim qdrant compute-aks compute-aca data monitor registry security network foundation"
           fi
           
           echo "### $ACTION Results" >> $GITHUB_STEP_SUMMARY

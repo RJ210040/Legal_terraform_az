@@ -16,10 +16,10 @@
 # ============================================================================
 
 param(
-    [ValidateSet("dev", "staging", "prod")]
+    [ValidateSet("dev", "mvp", "staging", "prod")]
     [string]$Environment = "dev",
     
-    [string]$Region = "eastus",
+    [string]$Region = "eastus2",
     
     [string]$OrgShort = "tv",
     

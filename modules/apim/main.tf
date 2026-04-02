@@ -59,3 +59,27 @@ resource "azurerm_api_management_policy" "global" {
   api_management_id = azurerm_api_management.main.id
   xml_content       = var.global_policy
 }
+
+resource "azurerm_api_management_logger" "app_insights" {
+  name                = "app-insights"
+  api_management_name = azurerm_api_management.main.name
+  resource_group_name = var.resource_group_name
+  resource_id         = var.app_insights_id
+
+  application_insights {
+    instrumentation_key = var.app_insights_instrumentation_key
+  }
+}
+
+resource "azurerm_api_management_diagnostic" "app_insights" {
+  identifier               = "applicationinsights"
+  api_management_name      = azurerm_api_management.main.name
+  resource_group_name      = var.resource_group_name
+  api_management_logger_id = azurerm_api_management_logger.app_insights.id
+
+  sampling_percentage       = 100
+  always_log_errors         = true
+  log_client_ip             = true
+  verbosity                 = "information"
+  http_correlation_protocol = "W3C"
+}

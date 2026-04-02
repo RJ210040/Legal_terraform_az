@@ -70,6 +70,17 @@ variable "global_policy" {
   default     = null
 }
 
+variable "app_insights_id" {
+  description = "Application Insights resource ID for the APIM logger"
+  type        = string
+}
+
+variable "app_insights_instrumentation_key" {
+  description = "Application Insights instrumentation key for the APIM logger"
+  type        = string
+  sensitive   = true
+}
+
 variable "tags" {
   description = "Resource tags"
   type        = map(string)
