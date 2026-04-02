@@ -14,6 +14,12 @@ variable "state_container_name" {
   default     = "tfstate"
 }
 
+variable "enable_aks" {
+  description = "Deploy AKS cluster (prod only — set false for dev/mvp to skip)"
+  type        = bool
+  default     = false
+}
+
 variable "kubernetes_version" {
   description = "Kubernetes version"
   type        = string

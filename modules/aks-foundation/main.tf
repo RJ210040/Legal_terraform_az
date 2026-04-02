@@ -2,6 +2,8 @@
 # AKS Foundation Module
 # -----------------------------------------------------------------------------
 
+data "azurerm_client_config" "current" {}
+
 resource "azurerm_kubernetes_cluster" "main" {
   name                = var.name
   location            = var.location
@@ -42,6 +44,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     for_each = var.enable_azure_rbac ? [1] : []
     content {
       azure_rbac_enabled = true
+      tenant_id          = data.azurerm_client_config.current.tenant_id
     }
   }
 

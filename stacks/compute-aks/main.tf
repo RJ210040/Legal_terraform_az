@@ -65,6 +65,7 @@ locals {
 }
 
 module "aks" {
+  count                      = var.enable_aks ? 1 : 0
   source                     = "../../modules/aks-foundation"
   name                       = local.naming.kubernetes_cluster
   location                   = local.location
@@ -78,7 +79,8 @@ module "aks" {
 }
 
 resource "azurerm_role_assignment" "aks_acr" {
+  count                = var.enable_aks ? 1 : 0
   scope                = local.acr_id
   role_definition_name = "AcrPull"
-  principal_id         = module.aks.kubelet_identity_object_id
+  principal_id         = module.aks[0].kubelet_identity_object_id
 }
