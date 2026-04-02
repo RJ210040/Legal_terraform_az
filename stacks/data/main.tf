@@ -62,6 +62,24 @@ locals {
   )
 }
 
+# -----------------------------------------------------------------------------
+# Moved blocks: modules were converted from unindexed to count-based.
+# These tell Terraform to update state addresses in-place instead of
+# destroy + recreate. Safe to keep permanently; ignored once state is migrated.
+# -----------------------------------------------------------------------------
+moved {
+  from = module.postgres
+  to   = module.postgres[0]
+}
+moved {
+  from = module.storage
+  to   = module.storage[0]
+}
+moved {
+  from = module.servicebus
+  to   = module.servicebus[0]
+}
+
 module "postgres" {
   count                = var.enable_postgres ? 1 : 0
   source               = "../../modules/postgres"
