@@ -142,7 +142,7 @@ container_apps = [
 # Your apps call one URL; APIM routes to the right provider and handles keys.
 # -----------------------------------------------------------------------------
 publisher_name  = "TV Engineering"
-publisher_email = "infra@tresvista.com"   # Update to your team's email
+publisher_email = "rahul.joshi@tresvista.com"   # Update to your team's email
 sku_name        = "Consumption_0"         # Consumption = per-call pricing, no fixed cost in dev
 
 # AI provider backends — add/remove providers your project needs.

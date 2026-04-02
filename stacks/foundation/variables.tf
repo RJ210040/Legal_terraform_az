@@ -1,3 +1,19 @@
+variable "state_resource_group_name" {
+  description = "Resource group for Terraform state"
+  type        = string
+}
+
+variable "state_storage_account_name" {
+  description = "Storage account for Terraform state"
+  type        = string
+}
+
+variable "state_container_name" {
+  description = "Container for Terraform state"
+  type        = string
+  default     = "tfstate"
+}
+
 variable "org_short" {
   description = "Short organization identifier (2-4 chars)"
   type        = string
